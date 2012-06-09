@@ -24,7 +24,35 @@ import cgi, os, re, shutil
 
 lilypondFile = tmpfile("lilypond", ".ly")
 lilypondCmd = ["lilypond", "-dbackend=eps", "-dno-gs-load-fonts", "-dinclude-eps-fonts", "--o", lilypondFile, "--png", lilypondFile]
-lilypondTemplate = u'''
+lilypondTemplates = {}
+lilypondRegexp = re.compile(r"\[lilypond(|=([a-z0-9_-]+))\](.+?)\[/lilypond\]", re.DOTALL | re.IGNORECASE)
+
+# --- Templates: ---
+
+def tpl_file(name):
+    return os.path.join(mw.pm.addonFolder(), "lilypond", "%s.ly" % (name,))
+
+def setTemplate(name, content):
+    lilypondTemplates[name] = content
+    f = open(tpl_file(name), 'w')
+    f.write(content)
+
+def getTemplate(name, code):
+    pattern = "%ANKI%"
+
+    if name is None:
+        name="default"
+
+    tpl = None
+
+    if name not in lilypondTemplates:
+        try:
+            tpl = open(tpl_file(name)).read()
+            if tpl and pattern in tpl:
+                lilypondTemplates[name] = tpl
+        except:
+            if name == "default":
+                tpl = u"""
 \\paper{
   indent=0\\mm
   line-width=120\\mm
@@ -34,9 +62,14 @@ lilypondTemplate = u'''
   scoreTitleMarkup = ##f
 }
 
-%s
-'''
-lilypondRegexp = re.compile(r"\[lilypond\](.+?)\[/lilypond\]", re.DOTALL | re.IGNORECASE)
+\\relative c'' { %s }
+""" % (pattern,)
+                setTemplate("default", tpl)
+        finally:
+            if name not in lilypondTemplates:
+                raise IOError, "LilyPond Template %s not found or not valid." % (name,)
+
+    return lilypondTemplates[name].replace(pattern, code)
 
 # --- Functions: ---
 
@@ -52,7 +85,7 @@ def _lyFromHtml(ly):
     return ly
 
 
-def _buildImg(ly, col, fname):
+def _buildImg(col, ly, fname):
     print "buildImg", ly
 
     lyfile = open(lilypondFile, "w")
@@ -67,22 +100,22 @@ def _buildImg(ly, col, fname):
     # add to media
     shutil.copyfile(lilypondFile+".png", os.path.join(col.media.dir(), fname))
 
-def _imgLink(col, ly):
+def _imgLink(col, template, ly):
     print "_imgLink", ly
 
     # Finalize LilyPond source.
-    ly = lilypondTemplate % (ly,)
+    ly = getTemplate(template, ly)
     ly = ly.encode("utf8")
 
     # Derive image filename from source.
-    fname = "lilypond-%s.png" % (checksum(ly))
+    fname = "lilypond-%s.png" % (checksum(ly),)
     link = '<img src="%s">' % (fname,)
 
     # Build image if necessary.
     if os.path.exists(fname):
         return link
     else:
-        err = _buildImg(ly, col, fname)
+        err = _buildImg(col, ly, fname)
         if err:
             return err
         else:
@@ -111,7 +144,7 @@ def mungeFields(fields, model, data, col):
         for match in lilypondRegexp.finditer(fields[field]):
             print "match", match.group()
             fields[field] = fields[field].replace(
-                match.group(), _imgLink(col, _lyFromHtml(match.group(1)))
+                match.group(), _imgLink(col, match.group(2), _lyFromHtml(match.group(3)))
             )
 
     return fields
