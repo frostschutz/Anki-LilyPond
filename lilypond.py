@@ -10,11 +10,12 @@ Code is based on / inspired by libanki's LaTeX integration.
 
 # --- Imports: ---
 
-from anki.hooks import addHook
+from anki.hooks import addHook, wrap
 from anki.lang import _
 from anki.utils import call, checksum, stripHTML, tmpfile
 from aqt import mw
 from aqt.qt import *
+from aqt.utils import getOnlyText, showInfo
 from htmlentitydefs import entitydefs
 import cgi, os, re, shutil
 
@@ -24,16 +25,31 @@ import cgi, os, re, shutil
 
 lilypondFile = tmpfile("lilypond", ".ly")
 lilypondCmd = ["lilypond", "-dbackend=eps", "-dno-gs-load-fonts", "-dinclude-eps-fonts", "--o", lilypondFile, "--png", lilypondFile]
+lilypondPattern = "%ANKI%"
+lilypondTemplate = u"""
+\\paper{
+  indent=0\\mm
+  line-width=120\\mm
+  oddFooterMarkup=##f
+  oddHeaderMarkup=##f
+  bookTitleMarkup = ##f
+  scoreTitleMarkup = ##f
+}
+
+\\relative c'' { %s }
+""" % (lilypondPattern,)
 lilypondTemplates = {}
+lilypondDir = os.path.join(mw.pm.addonFolder(), "lilypond")
 lilypondRegexp = re.compile(r"\[lilypond(|=([a-z0-9_-]+))\](.+?)\[/lilypond\]", re.DOTALL | re.IGNORECASE)
 lilypondFieldRegexp = re.compile(r"lilypond(|-([a-z0-9_-]+))$", re.DOTALL | re.IGNORECASE)
+lilypondNameRegexp = re.compile(r"^[a-z0-9_-]+$", re.DOTALL | re.IGNORECASE)
 lilypondCache = {}
 
 # --- Templates: ---
 
 def tpl_file(name):
     '''Build the full filename for template name.'''
-    return os.path.join(mw.pm.addonFolder(), "lilypond", "%s.ly" % (name,))
+    return os.path.join(lilypondDir, "%s.ly" % (name,))
 
 def setTemplate(name, content):
     '''Set and save a template.'''
@@ -57,24 +73,64 @@ def getTemplate(name, code):
                 lilypondTemplates[name] = tpl
         except:
             if name == "default":
-                tpl = u"""
-\\paper{
-  indent=0\\mm
-  line-width=120\\mm
-  oddFooterMarkup=##f
-  oddHeaderMarkup=##f
-  bookTitleMarkup = ##f
-  scoreTitleMarkup = ##f
-}
-
-\\relative c'' { %s }
-""" % (pattern,)
+                tpl = lilypondTemplate
                 setTemplate("default", tpl)
         finally:
             if name not in lilypondTemplates:
                 raise IOError, "LilyPond Template %s not found or not valid." % (name,)
 
     return lilypondTemplates[name].replace(pattern, code)
+
+# --- GUI: ---
+
+def templatefiles():
+    '''Produce list of template files.'''
+    return [f for f in os.listdir(lilypondDir)
+            if f.endswith(".ly")]
+
+def addtemplate():
+    '''Dialog to add a new template file.'''
+    name = getOnlyText("Please choose a name for your new LilyPond template:")
+
+    if not lilypondNameRegexp.match(name):
+        showInfo("Empty template name or invalid characters.")
+        return
+
+    if os.path.exists(tpl_file(name)):
+        showInfo("A template with that name already exists.")
+
+    setTemplate(name, lilypondTemplate)
+    mw.addonManager.onEdit(tpl_file(name))
+
+def lilypondMenu():
+    '''Extend the addon menu with lilypond template entries.'''
+    lm = None
+
+    for action in mw.form.menuPlugins.actions():
+        menu = action.menu()
+        if menu and menu.title() == "lilypond":
+            lm = menu
+            break
+
+    if not lm:
+        return
+
+    a = QAction(_("Add template..."), mw)
+    mw.connect(a, SIGNAL("triggered()"), addtemplate)
+    lm.addAction(a)
+
+    for file in templatefiles():
+        m = lm.addMenu(os.path.splitext(file)[0])
+
+        a = QAction(_("Edit..."), mw)
+        p = os.path.join(lilypondDir, file)
+        mw.connect(a, SIGNAL("triggered()"),
+                   lambda p=p: mw.addonManager.onEdit(p))
+        m.addAction(a)
+        a = QAction(_("Delete..."), mw)
+        mw.connect(a, SIGNAL("triggered()"),
+                   lambda p=p: mw.addonManager.onRem(p))
+        m.addAction(a)
 
 # --- Functions: ---
 
@@ -168,5 +224,13 @@ def mungeFields(fields, model, data, col):
     return fields
 
 addHook("mungeFields", mungeFields)
+
+def profileLoaded():
+    '''Monkey patch the addon manager.'''
+    mw.addonManager.rebuildAddonsMenu = wrap(mw.addonManager.rebuildAddonsMenu,
+                                             lilypondMenu)
+    mw.addonManager.rebuildAddonsMenu()
+
+addHook("profileLoaded", profileLoaded)
 
 # --- End of file. ---
