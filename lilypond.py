@@ -30,14 +30,17 @@ lilypondRegexp = re.compile(r"\[lilypond(|=([a-z0-9_-]+))\](.+?)\[/lilypond\]", 
 # --- Templates: ---
 
 def tpl_file(name):
+    '''Build the full filename for template name.'''
     return os.path.join(mw.pm.addonFolder(), "lilypond", "%s.ly" % (name,))
 
 def setTemplate(name, content):
+    '''Set and save a template.'''
     lilypondTemplates[name] = content
     f = open(tpl_file(name), 'w')
     f.write(content)
 
 def getTemplate(name, code):
+    '''Load template by name and fill it with code.'''
     pattern = "%ANKI%"
 
     if name is None:
@@ -74,7 +77,7 @@ def getTemplate(name, code):
 # --- Functions: ---
 
 def _lyFromHtml(ly):
-    "Convert entities and fix newlines."
+    '''Convert entities and fix newlines.'''
     ly = ly.replace("&nbsp;", " ")
 
     for match in re.compile(r"&([a-zA-Z]+);").finditer(ly):
@@ -86,8 +89,7 @@ def _lyFromHtml(ly):
 
 
 def _buildImg(col, ly, fname):
-    print "buildImg", ly
-
+    '''Build the image PNG file itself and add it to the media dir.'''
     lyfile = open(lilypondFile, "w")
     lyfile.write(ly)
     lyfile.close()
@@ -101,8 +103,7 @@ def _buildImg(col, ly, fname):
     shutil.copyfile(lilypondFile+".png", os.path.join(col.media.dir(), fname))
 
 def _imgLink(col, template, ly):
-    print "_imgLink", ly
-
+    '''Build an <img src> link for given LilyPond code.'''
     # Finalize LilyPond source.
     ly = getTemplate(template, ly)
     ly = ly.encode("utf8")
@@ -122,6 +123,7 @@ def _imgLink(col, template, ly):
             return link
 
 def _errMsg(type):
+    '''Error message, will be displayed in the card itself.'''
     msg = (_("Error executing %s.") % type) + "<br>"
     try:
         log = open(lilypondFile+".log", "r").read()
@@ -136,6 +138,7 @@ def _errMsg(type):
 # --- Hooks: ---
 
 def mungeFields(fields, model, data, col):
+    '''Parse lilypond tags before they are displayed.'''
     for fld in model['flds']:
         field = fld['name']
 
