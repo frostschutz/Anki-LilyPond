@@ -26,6 +26,7 @@ lilypondFile = tmpfile("lilypond", ".ly")
 lilypondCmd = ["lilypond", "-dbackend=eps", "-dno-gs-load-fonts", "-dinclude-eps-fonts", "--o", lilypondFile, "--png", lilypondFile]
 lilypondTemplates = {}
 lilypondRegexp = re.compile(r"\[lilypond(|=([a-z0-9_-]+))\](.+?)\[/lilypond\]", re.DOTALL | re.IGNORECASE)
+lilypondFieldRegexp = re.compile(r"lilypond(|-([a-z0-9_-]+))$", re.DOTALL | re.IGNORECASE)
 
 # --- Templates: ---
 
@@ -100,7 +101,10 @@ def _buildImg(col, ly, fname):
         return _errMsg("lilypond")
 
     # add to media
-    shutil.copyfile(lilypondFile+".png", os.path.join(col.media.dir(), fname))
+    try:
+        shutil.copyfile(lilypondFile+".png", os.path.join(col.media.dir(), fname))
+    except:
+        return _("Could not copy LilyPond PNG file to media dir. No output?<br>")+_errMsg("lilypond")
 
 def _imgLink(col, template, ly):
     '''Build an <img src> link for given LilyPond code.'''
@@ -127,12 +131,10 @@ def _errMsg(type):
     msg = (_("Error executing %s.") % type) + "<br>"
     try:
         log = open(lilypondFile+".log", "r").read()
-        if not log:
-            raise Exception()
-        msg += """<small><pre style="text-align: left">""" + cgi.escape(log) + "</pre></small>"
+        if log:
+            msg += """<small><pre style="text-align: left">""" + cgi.escape(log) + "</pre></small>"
     except:
         msg += _("Have you installed lilypond?")
-        pass
     return msg
 
 # --- Hooks: ---
@@ -142,10 +144,17 @@ def mungeFields(fields, model, data, col):
     for fld in model['flds']:
         field = fld['name']
 
-        print "checking", fields[field], "..."
+        # check field name
+        match = lilypondFieldRegexp.search(field)
 
+        if match:
+            # special case: empty string or (fieldname) for the card browser
+            if fields[field] and fields[field] != "(%s)" % (field,):
+                fields[field] = _imgLink(col, match.group(2), _lyFromHtml(fields[field]))
+            continue
+
+        # check field contents
         for match in lilypondRegexp.finditer(fields[field]):
-            print "match", match.group()
             fields[field] = fields[field].replace(
                 match.group(), _imgLink(col, match.group(2), _lyFromHtml(match.group(3)))
             )
