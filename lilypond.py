@@ -235,6 +235,7 @@ addHook("mungeFields", mungeFields)
 
 def profileLoaded():
     '''Monkey patch the addon manager.'''
+    getTemplate(None, "") # creates default.ly if does not exist
     mw.addonManager.rebuildAddonsMenu = wrap(mw.addonManager.rebuildAddonsMenu,
                                              lilypondMenu)
     mw.addonManager.rebuildAddonsMenu()
