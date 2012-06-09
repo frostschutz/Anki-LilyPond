@@ -27,6 +27,7 @@ lilypondCmd = ["lilypond", "-dbackend=eps", "-dno-gs-load-fonts", "-dinclude-eps
 lilypondTemplates = {}
 lilypondRegexp = re.compile(r"\[lilypond(|=([a-z0-9_-]+))\](.+?)\[/lilypond\]", re.DOTALL | re.IGNORECASE)
 lilypondFieldRegexp = re.compile(r"lilypond(|-([a-z0-9_-]+))$", re.DOTALL | re.IGNORECASE)
+lilypondCache = {}
 
 # --- Templates: ---
 
@@ -120,8 +121,13 @@ def _imgLink(col, template, ly):
     if os.path.exists(fname):
         return link
     else:
+        # avoid errornous cards killing performance
+        if fname in lilypondCache:
+            return lilypondCache[fname]
+
         err = _buildImg(col, ly, fname)
         if err:
+            lilypondCache[fname] = err
             return err
         else:
             return link
