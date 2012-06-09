@@ -220,8 +220,10 @@ def mungeFields(fields, model, data, col):
         match = lilypondFieldRegexp.search(field)
 
         if match:
-            # special case: empty string or (fieldname) for the card browser
-            if fields[field] and fields[field] != "(%s)" % (field,):
+            # special case: empty string or (fieldname) or ankiflag for the card browser
+            if fields[field] \
+                    and fields[field] != "(%s)" % (field,) \
+                    and fields[field] != "ankiflag":
                 fields[field] = _imgLink(col, match.group(2), _lyFromHtml(fields[field]))
             continue
 
