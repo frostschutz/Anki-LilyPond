@@ -26,6 +26,7 @@ import cgi, os, re, shutil
 lilypondFile = tmpfile("lilypond", ".ly")
 lilypondCmd = ["lilypond", "-dbackend=eps", "-dno-gs-load-fonts", "-dinclude-eps-fonts", "--o", lilypondFile, "--png", lilypondFile]
 lilypondPattern = "%ANKI%"
+lilypondSplit = "%%%"
 lilypondTemplate = u"""
 \\paper{
   indent=0\\mm
@@ -59,8 +60,6 @@ def setTemplate(name, content):
 
 def getTemplate(name, code):
     '''Load template by name and fill it with code.'''
-    pattern = "%ANKI%"
-
     if name is None:
         name="default"
 
@@ -69,7 +68,7 @@ def getTemplate(name, code):
     if name not in lilypondTemplates:
         try:
             tpl = open(tpl_file(name)).read()
-            if tpl and pattern in tpl:
+            if tpl and lilypondPattern in tpl:
                 lilypondTemplates[name] = tpl
         except:
             if name == "default":
@@ -79,7 +78,16 @@ def getTemplate(name, code):
             if name not in lilypondTemplates:
                 raise IOError, "LilyPond Template %s not found or not valid." % (name,)
 
-    return lilypondTemplates[name].replace(pattern, code)
+    # Replace one or more occurences of lilypondPattern
+
+    codes = code.split(lilypondSplit)
+
+    r = lilypondTemplates[name]
+
+    for code in codes:
+        r = r.replace(lilypondPattern, code, 1)
+
+    return r
 
 # --- GUI: ---
 
