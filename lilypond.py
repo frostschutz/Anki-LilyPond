@@ -144,15 +144,17 @@ def lilypondMenu():
 
 def _lyFromHtml(ly):
     '''Convert entities and fix newlines.'''
+
+    ly = re.sub(r"<(br|div|p) */?>", "\n", ly)
+    ly = stripHTML(ly)
+
     ly = ly.replace("&nbsp;", " ")
 
     for match in re.compile(r"&([a-zA-Z]+);").finditer(ly):
         if match.group(1) in entitydefs:
             ly = ly.replace(match.group(), entitydefs[match.group(1)])
-    ly = re.sub(r"<(br|div|p) */?>", "\n", ly)
-    ly = stripHTML(ly)
-    return ly
 
+    return ly
 
 def _buildImg(col, ly, fname):
     '''Build the image PNG file itself and add it to the media dir.'''
