@@ -169,12 +169,13 @@ def _buildImg(col, ly, fname):
 
     # add to media
     try:
-        shutil.copyfile(lilypondFile+".png", os.path.join(col.media.dir(), fname))
+        shutil.move(lilypondFile+".png", os.path.join(col.media.dir(), fname))
     except:
-        return _("Could not copy LilyPond PNG file to media dir. No output?<br>")+_errMsg("lilypond")
+        return _("Could not move LilyPond PNG file to media dir. No output?<br>")+_errMsg("lilypond")
 
 def _imgLink(col, template, ly):
     '''Build an <img src> link for given LilyPond code.'''
+
     # Finalize LilyPond source.
     ly = getTemplate(template, ly)
     ly = ly.encode("utf8")
@@ -213,6 +214,11 @@ def _errMsg(type):
 
 def mungeFields(fields, model, data, col):
     '''Parse lilypond tags before they are displayed.'''
+
+    # Ignore duplicated mungeFields call for the answer side.
+    if 'FrontSide' in fields:
+        return fields
+
     for fld in model['flds']:
         field = fld['name']
 
