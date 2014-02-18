@@ -225,12 +225,16 @@ def mungeFields(fields, model, data, col):
         # check field name
         match = lilypondFieldRegexp.search(field)
 
-        if match:
-            # special case: empty string or (fieldname) or ankiflag for the card browser
-            if fields[field] \
-                    and fields[field] != "(%s)" % (field,) \
-                    and fields[field] != "ankiflag":
-                fields[field] = _imgLink(col, match.group(2), _lyFromHtml(fields[field]))
+        if match \
+                and fields[field] != "(%s)" % (field,) \
+                and fields[field] != "ankiflag":
+            fields[field] = _imgLink(col, match.group(2), _lyFromHtml(fields[field]))
+
+            # autofill field for web:
+            imgfield = field.replace("lilypond", "lilypondimg", 1)
+            if imgfield in fields and fields[field] != fields[imgfield]:
+                fields[imgfield] = fields[field]
+                col.findReplace((data[1],), "^.*$", fields[field], regex=True, field=imgfield)
             continue
 
         # check field contents
