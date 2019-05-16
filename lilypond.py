@@ -16,7 +16,7 @@ from anki.utils import call, checksum, stripHTML, tmpfile
 from aqt import mw
 from aqt.qt import *
 from aqt.utils import getOnlyText, showInfo
-from htmlentitydefs import entitydefs
+from html.entities import entitydefs
 import cgi, os, re, shutil
 
 # --- Globals: ---
@@ -24,10 +24,11 @@ import cgi, os, re, shutil
 # http://lilypond.org/doc/v2.14/Documentation/usage/lilypond-output-in-other-programs#inserting-lilypond-output-into-other-programs
 
 lilypondFile = tmpfile("lilypond", ".ly")
+os.environ['PATH'] = f"{os.environ['PATH']}:/usr/local/bin"
 lilypondCmd = ["lilypond", "-dbackend=eps", "-dno-gs-load-fonts", "-dinclude-eps-fonts", "--o", lilypondFile, "--png", lilypondFile]
 lilypondPattern = "%ANKI%"
 lilypondSplit = "%%%"
-lilypondTemplate = u"""
+lilypondTemplate = """
 \\paper{
   indent=0\\mm
   line-width=120\\mm
@@ -76,7 +77,7 @@ def getTemplate(name, code):
                 setTemplate("default", tpl)
         finally:
             if name not in lilypondTemplates:
-                raise IOError, "LilyPond Template %s not found or not valid." % (name,)
+                raise IOError("LilyPond Template %s not found or not valid." % (name,))
 
     # Replace one or more occurences of lilypondPattern
 
@@ -159,7 +160,7 @@ def _lyFromHtml(ly):
 def _buildImg(col, ly, fname):
     '''Build the image PNG file itself and add it to the media dir.'''
     lyfile = open(lilypondFile, "w")
-    lyfile.write(ly)
+    lyfile.write(ly.decode("utf-8"))
     lyfile.close()
 
     log = open(lilypondFile+".log", "w")
@@ -250,9 +251,9 @@ addHook("mungeFields", mungeFields)
 def profileLoaded():
     '''Monkey patch the addon manager.'''
     getTemplate(None, "") # creates default.ly if does not exist
-    mw.addonManager.rebuildAddonsMenu = wrap(mw.addonManager.rebuildAddonsMenu,
-                                             lilypondMenu)
-    mw.addonManager.rebuildAddonsMenu()
+    #mw.addonManager.rebuildAddonsMenu = wrap(mw.addonManager.rebuildAddonsMenu,
+       #                                      lilypondMenu)
+    #mnkw.addonManager.rebuildAddonsMenu()
 
 addHook("profileLoaded", profileLoaded)
 
