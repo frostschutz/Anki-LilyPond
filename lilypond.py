@@ -113,32 +113,20 @@ def addtemplate():
 
 def lilypondMenu():
     '''Extend the addon menu with lilypond template entries.'''
-    lm = None
 
-    for action in mw.form.menuPlugins.actions():
-        menu = action.menu()
-        if menu and menu.title() == "lilypond":
-            lm = menu
-            break
-
-    if not lm:
-        return
-
+    lilypond_menu = mw.form.menuTools.addMenu('Lilypond')
     a = QAction(_("Add template..."), mw)
-    mw.connect(a, SIGNAL("triggered()"), addtemplate)
-    lm.addAction(a)
+    a.triggered.connect(lambda _, o=mw: addtemplate())
+    lilypond_menu.addAction(a)
 
     for file in templatefiles():
-        m = lm.addMenu(os.path.splitext(file)[0])
-
+        m = lilypond_menu.addMenu(os.path.splitext(file)[0])
         a = QAction(_("Edit..."), mw)
         p = os.path.join(lilypondDir, file)
-        mw.connect(a, SIGNAL("triggered()"),
-                   lambda p=p: mw.addonManager.onEdit(p))
+        a.triggered.connect(lambda _, o=mw: mw.addonManager.onEdit(i))
         m.addAction(a)
         a = QAction(_("Delete..."), mw)
-        mw.connect(a, SIGNAL("triggered()"),
-                   lambda p=p: mw.addonManager.onRem(p))
+        a.triggered.connect(lambda _, o=mw: mw.addonManager.onRem(i))
         m.addAction(a)
 
 # --- Functions: ---
