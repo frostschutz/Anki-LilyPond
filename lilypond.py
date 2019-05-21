@@ -16,7 +16,9 @@ from anki.utils import call, checksum, stripHTML, tmpfile
 from aqt import mw
 from aqt.qt import *
 from aqt.utils import getOnlyText, showInfo
+from anki.utils import splitFields
 from html.entities import entitydefs
+from anki.media import MediaManager
 import cgi, os, re, shutil
 
 # --- Globals: ---
@@ -162,28 +164,26 @@ def _buildImg(col, ly, fname):
     except:
         return _("Could not move LilyPond PNG file to media dir. No output?<br>")+_errMsg("lilypond")
 
-def _imgLink(col, template, ly):
+def _imgLink(col, template, ly, filename):
     '''Build an <img src> link for given LilyPond code.'''
 
     # Finalize LilyPond source.
     ly = getTemplate(template, ly)
     ly = ly.encode("utf8")
 
-    # Derive image filename from source.
-    fname = "lilypond-%s.png" % (checksum(ly),)
-    link = '<img src="%s">' % (fname,)
+    link = '<img src="%s">' % (filename,)
 
     # Build image if necessary.
-    if os.path.exists(fname):
+    if os.path.exists(filename):
         return link
     else:
         # avoid errornous cards killing performance
-        if fname in lilypondCache:
-            return lilypondCache[fname]
+        if filename in lilypondCache:
+            return lilypondCache[filename]
 
-        err = _buildImg(col, ly, fname)
+        err = _buildImg(col, ly, filename)
         if err:
-            lilypondCache[fname] = err
+            lilypondCache[filename] = err
             return err
         else:
             return link
@@ -201,12 +201,14 @@ def _errMsg(type):
 
 # --- Hooks: ---
 
-def mungeFields(fields, model, data, col):
+def mungeFieldsWithFileList(fields, model, data, col):
     '''Parse lilypond tags before they are displayed.'''
+
+    files = []
 
     # Ignore duplicated mungeFields call for the answer side.
     if 'FrontSide' in fields:
-        return fields
+        return (fields, [])
 
     for fld in model['flds']:
         field = fld['name']
@@ -214,10 +216,15 @@ def mungeFields(fields, model, data, col):
         # check field name
         match = lilypondFieldRegexp.search(field)
 
+        # Derive image filename from source.
+
         if match \
                 and fields[field] != "(%s)" % (field,) \
                 and fields[field] != "ankiflag":
-            fields[field] = _imgLink(col, match.group(2), _lyFromHtml(fields[field]))
+            ly = _lyFromHtml(fields[field])
+            filename = "lilypond-%s.png" % (checksum(ly),)
+            files.append(filename)
+            fields[field] = _imgLink(col, match.group(2), ly, filename)
 
             # autofill field for web:
             imgfield = field.replace("lilypond", "lilypondimg", 1)
@@ -228,21 +235,56 @@ def mungeFields(fields, model, data, col):
 
         # check field contents
         for match in lilypondRegexp.finditer(fields[field]):
+            ly = _lyFromHtml(match.group(3))
+            filename = "lilypond-%s.png" % (checksum(ly),)
+            files.append(filename)
             fields[field] = fields[field].replace(
-                match.group(), _imgLink(col, match.group(2), _lyFromHtml(match.group(3)))
+                match.group(), _imgLink(col, match.group(2), ly, filename)
             )
+    return (fields, files)
 
-    return fields
+def mungeFields(fields, model, data, col):
+    lilypondMunge = mungeFieldsWithFileList(fields, model, data, col)[0]
+    return lilypondMunge
+
 
 addHook("mungeFields", mungeFields)
 
 def profileLoaded():
     '''Monkey patch the addon manager.'''
     getTemplate(None, "") # creates default.ly if does not exist
-    #mw.addonManager.rebuildAddonsMenu = wrap(mw.addonManager.rebuildAddonsMenu,
-       #                                      lilypondMenu)
-    #mnkw.addonManager.rebuildAddonsMenu()
+
+    # Commenting out until I can work out how to replace the
+    # onEdit and onRem calls in Anki 2.1
+    # lilypondMenu()
 
 addHook("profileLoaded", profileLoaded)
+
+anki_check = MediaManager.check
+
+def alert(message):
+    box = QMessageBox()
+    box.setText(str(message))
+    box.exec_()
+
+def lilypond_check(self, local=None):
+    files = []
+    for nid, mid, fields in self.col.db.execute("select id, mid, flds from notes"):
+        model = self.col.models.get(mid)
+        note = self.col.getNote(nid)
+        data = [None, note.id]
+        flist = splitFields(fields)
+        fields = {}
+        for (name, (idx, conf)) in list(self.col.models.fieldMap(model).items()):
+            fields[name] = flist[idx]
+        (fields, note_files) = mungeFieldsWithFileList(fields, model, data, self.col)
+        files = files + note_files
+    anki_results = anki_check(self, local)
+    files_to_delete = [x for x in anki_results[1] if x not in files]
+    return (anki_results[0], files_to_delete, anki_results[2])
+
+
+
+MediaManager.check = lilypond_check
 
 # --- End of file. ---
