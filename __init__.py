@@ -52,7 +52,7 @@ lilypondTemplate = """
 \\relative c'' { %s }
 """ % (lilypondPattern,)
 lilypondTemplates = {}
-lilypondDir = os.path.join(mw.pm.addonFolder(), "lilypond")
+lilypondDir = os.path.join(mw.pm.addonFolder(), __name__, "lilypond")
 lilypondRegexp = re.compile(r"\[lilypond(|=([a-z0-9_-]+))\](.+?)\[/lilypond\]", re.DOTALL | re.IGNORECASE)
 lilypondFieldRegexp = re.compile(r"lilypond(|-([a-z0-9_-]+))$", re.DOTALL | re.IGNORECASE)
 lilypondNameRegexp = re.compile(r"^[a-z0-9_-]+$", re.DOTALL | re.IGNORECASE)
