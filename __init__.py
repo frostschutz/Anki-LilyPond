@@ -41,10 +41,13 @@ from aqt.utils import showInfo
 
 # http://lilypond.org/doc/v2.14/Documentation/usage/lilypond-output-in-other-programs#inserting-lilypond-output-into-other-programs
 
+# Load configuration options
+_config = mw.addonManager.getConfig(__name__)
+
 lilypondFile = tmpfile("lilypond", ".ly")
-os.environ['PATH'] = f"{os.environ['PATH']}:/usr/local/bin"
-lilypondCmd = ["lilypond", "-dbackend=eps", "-dno-gs-load-fonts", "-dinclude-eps-fonts",
-               "--o", lilypondFile, "--png", lilypondFile]
+outputFileExt = _config["output_file_ext"]
+os.environ['PATH'] = f"{os.environ['PATH']}:/usr/local/bin"     # TODO Platform independence?
+lilypondCmd = ["lilypond"] + _config['command_line_params'] + ["--o", lilypondFile, lilypondFile]
 lilypondPattern = "%ANKI%"
 lilypondSplit = "%%%"
 lilypondTemplates = {}
@@ -155,7 +158,7 @@ def _ly_from_html(ly):
 
 
 def _build_img(col: Collection, ly, fname):
-    """Build the image PNG file itself and add it to the media dir."""
+    """Build the image file itself and add it to the media dir."""
     lyfile = open(lilypondFile, "w")
     lyfile.write(ly.decode("utf-8"))
     lyfile.close()
@@ -167,9 +170,9 @@ def _build_img(col: Collection, ly, fname):
 
     # add to media
     try:
-        shutil.move(lilypondFile + ".png", os.path.join(col.media.dir(), fname))
+        shutil.move(lilypondFile + outputFileExt, os.path.join(col.media.dir(), fname))
     except:
-        return _("Could not move LilyPond PNG file to media dir. No output?<br>") + _err_msg("lilypond")
+        return _("Could not move LilyPond image file to media dir. No output?<br>") + _err_msg("lilypond")
 
 
 def _img_link(col: Collection, template, ly, filename) -> str:
@@ -230,7 +233,7 @@ def munge_card(text: str, card: Card, kind: str) -> str:
     #   preferably without modifying note
     for match in lilypondRegexp.finditer(text):
         ly = _ly_from_html(match.group(3))
-        filename = f"lilypond-{checksum(ly)}.png"
+        filename = f"lilypond-{checksum(ly)}{outputFileExt}"
         text = text.replace(
             match.group(), _img_link(mw.col, match.group(2), ly, filename)
         )
@@ -244,7 +247,7 @@ def munge_field(txt: str, editor: Editor):
     #   If corresponding img field exists then populate it
     for match in lilypondRegexp.finditer(txt):
         ly = _ly_from_html(match.group(3))
-        filename = f"lilypond-{checksum(ly)}.png"
+        filename = f"lilypond-{checksum(ly)}{outputFileExt}"
         txt = txt.replace(
             match.group(), _img_link(mw.col, match.group(2), ly, filename)
         )
@@ -261,6 +264,7 @@ gui_hooks.editor_will_munge_html.append(munge_field)
 # def profileLoaded():
 #     """Monkey patch the addon manager."""
 #     lilypondMenu()
+#
 #
 # addHook("profileLoaded", profileLoaded)
 
