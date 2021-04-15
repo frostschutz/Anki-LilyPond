@@ -1,5 +1,5 @@
 LilyPond - music notation for everyone - http://lilypond.org/
--------------------------------------------------------------
+=============================================================
 
 With this addon, you can add sheet music snippets to your Anki deck,
 wrapped in [lilypond]c d e[/lilypond] tags.
@@ -15,7 +15,7 @@ This addon on GitHub: https://github.com/frostschutz/lilypond-anki
 
 
 How to use
-==========
+----------
 
 This addon understands lilypond tags:
 
@@ -43,7 +43,7 @@ front-lilypond-yourtemplate, back-lilypond-yourtemplate, etc.
 
 
 Mobile/Web support
-==================
+------------------
 
 Anki addons are desktop only, so by default, LilyPond images won't appear
 on other platforms since those platforms won't know what to make of a
@@ -64,7 +64,7 @@ it will be overwritten and discarded by the addon.
 
 
 LilyPond Templates
-==================
+------------------
 
 The addons/lilypond directory holds template files for LilyPond.
 
