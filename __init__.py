@@ -8,23 +8,31 @@ LilyPond (GNU Music Typesetter) integration addon for Anki 2.
 Code is based on / inspired by libanki's LaTeX integration.
 """
 
+# TODO
+#   Configuration page
+#       Custom parameters for lilypond exe
+#       Styling for <img> inserted into HTML
+#   Menu integration (for templates?)
+#   Is it true that changing templates requires restarting?
+
 # --- Imports: ---
 
 import cgi
-import os
 import re
 import shutil
 from html.entities import entitydefs
 
-from anki.hooks import addHook
+from anki import Collection
+from anki.cards import Card
 from anki.lang import _
 from anki.media import MediaManager
 from anki.utils import call
 from anki.utils import checksum
-from anki.utils import splitFields
 from anki.utils import stripHTML
 from anki.utils import tmpfile
+from aqt import gui_hooks
 from aqt import mw
+from aqt.editor import Editor
 from aqt.qt import *
 from aqt.utils import getOnlyText
 from aqt.utils import showInfo
@@ -39,20 +47,8 @@ lilypondCmd = ["lilypond", "-dbackend=eps", "-dno-gs-load-fonts", "-dinclude-eps
                "--o", lilypondFile, "--png", lilypondFile]
 lilypondPattern = "%ANKI%"
 lilypondSplit = "%%%"
-lilypondTemplate = """
-\\paper{
-  indent=0\\mm
-  line-width=120\\mm
-  oddFooterMarkup=##f
-  oddHeaderMarkup=##f
-  bookTitleMarkup = ##f
-  scoreTitleMarkup = ##f
-}
-
-\\relative c'' { %s }
-""" % (lilypondPattern,)
 lilypondTemplates = {}
-lilypondDir = os.path.join(mw.pm.addonFolder(), __name__, "lilypond")
+userFilesDir = os.path.join(mw.pm.addonFolder(), __name__, "user_files")
 lilypondRegexp = re.compile(r"\[lilypond(|=([a-z0-9_-]+))\](.+?)\[/lilypond\]", re.DOTALL | re.IGNORECASE)
 lilypondFieldRegexp = re.compile(r"lilypond(|-([a-z0-9_-]+))$", re.DOTALL | re.IGNORECASE)
 lilypondNameRegexp = re.compile(r"^[a-z0-9_-]+$", re.DOTALL | re.IGNORECASE)
@@ -63,7 +59,7 @@ lilypondCache = {}
 
 def tpl_file(name):
     """Build the full filename for template name."""
-    return os.path.join(lilypondDir, "%s.ly" % (name,))
+    return os.path.join(userFilesDir, "%s.ly" % (name,))
 
 
 def set_template(name, content):
@@ -73,10 +69,8 @@ def set_template(name, content):
     f.write(content)
 
 
-def get_template(name, code):
+def get_template(name: str = "default", code: str = lilypondPattern):
     """Load template by name and fill it with code."""
-    if name is None:
-        name = "default"
 
     tpl = None
 
@@ -85,10 +79,6 @@ def get_template(name, code):
             tpl = open(tpl_file(name)).read()
             if tpl and lilypondPattern in tpl:
                 lilypondTemplates[name] = tpl
-        except:
-            if name == "default":
-                tpl = lilypondTemplate
-                set_template("default", tpl)
         finally:
             if name not in lilypondTemplates:
                 raise IOError("LilyPond Template %s not found or not valid." % (name,))
@@ -109,7 +99,7 @@ def get_template(name, code):
 
 def templatefiles():
     """Produce list of template files."""
-    return [f for f in os.listdir(lilypondDir)
+    return [f for f in os.listdir(userFilesDir)
             if f.endswith(".ly")]
 
 
@@ -124,7 +114,7 @@ def addtemplate():
     if os.path.exists(tpl_file(name)):
         showInfo("A template with that name already exists.")
 
-    set_template(name, lilypondTemplate)
+    set_template(name)
     mw.addonManager.onEdit(tpl_file(name))
 
 
@@ -139,7 +129,7 @@ def lilypondMenu():
     for file in templatefiles():
         m = lilypond_menu.addMenu(os.path.splitext(file)[0])
         a = QAction(_("Edit..."), mw)
-        p = os.path.join(lilypondDir, file)
+        p = os.path.join(userFilesDir, file)
         a.triggered.connect(lambda _, o=mw: mw.addonManager.onEdit(i))
         m.addAction(a)
         a = QAction(_("Delete..."), mw)
@@ -164,7 +154,7 @@ def _ly_from_html(ly):
     return ly
 
 
-def _build_img(col, ly, fname):
+def _build_img(col: Collection, ly, fname):
     """Build the image PNG file itself and add it to the media dir."""
     lyfile = open(lilypondFile, "w")
     lyfile.write(ly.decode("utf-8"))
@@ -182,14 +172,21 @@ def _build_img(col, ly, fname):
         return _("Could not move LilyPond PNG file to media dir. No output?<br>") + _err_msg("lilypond")
 
 
-def _img_link(col, template, ly, filename):
-    """Build an <img src> link for given LilyPond code."""
+def _img_link(col: Collection, template, ly, filename) -> str:
+    """
+        Convert LilyPond code to an HTML <img> tag, building image if necessary.
+    :param col: Collection
+    :param template: Template
+    :param ly: LilyPond code
+    :param filename: Filename for image
+    :return: HTML <img> tage
+    """
 
     # Finalize LilyPond source.
     ly = get_template(template, ly)
     ly = ly.encode("utf8")
 
-    link = '<img src="%s">' % (filename,)
+    link = f'<img src="{filename}" alt="{ly}">'
 
     # Build image if necessary.
     if os.path.exists(filename):
@@ -221,67 +218,51 @@ def _err_msg(type):
 
 # --- Hooks: ---
 
-def munge_fields_with_file_list(fields, model, data, col):
-    """Parse lilypond tags before they are displayed."""
+def munge_card(text: str, card: Card, kind: str) -> str:
+    """
+        Replace lilypond tags in the card HTML before displaying
+    :param text: HTML contents of card
+    :param card: Card object
+    :param kind: Note type
+    :return: TODO Unknown
+    """
+    # TODO modify card to contain <img> for for mobile/web use
+    #   preferably without modifying note
+    for match in lilypondRegexp.finditer(text):
+        ly = _ly_from_html(match.group(3))
+        filename = f"lilypond-{checksum(ly)}.png"
+        text = text.replace(
+            match.group(), _img_link(mw.col, match.group(2), ly, filename)
+        )
+    return text
 
-    files = []
+gui_hooks.card_will_show.append(munge_card)
 
-    # Ignore duplicated mungeFields call for the answer side.
-    if 'FrontSide' in fields:
-        return fields, []
+def munge_field(txt: str, editor: Editor):
+    """Parse -lilypond field/lilypond tags in field before saving"""
+    # TODO If field matches lilypondFieldRegexp then render contents
+    #   If corresponding img field exists then populate it
+    for match in lilypondRegexp.finditer(txt):
+        ly = _ly_from_html(match.group(3))
+        filename = f"lilypond-{checksum(ly)}.png"
+        txt = txt.replace(
+            match.group(), _img_link(mw.col, match.group(2), ly, filename)
+        )
 
-    for fld in model['flds']:
-        field = fld['name']
-
-        # check field name
-        match = lilypondFieldRegexp.search(field)
-
-        # Derive image filename from source.
-
-        if match \
-                and fields[field] != "(%s)" % (field,) \
-                and fields[field] != "ankiflag":
-            ly = _ly_from_html(fields[field])
-            filename = "lilypond-%s.png" % (checksum(ly),)
-            files.append(filename)
-            fields[field] = _img_link(col, match.group(2), ly, filename)
-
-            # autofill field for web:
-            imgfield = field.replace("lilypond", "lilypondimg", 1)
-            if imgfield in fields and fields[field] != fields[imgfield]:
-                fields[imgfield] = fields[field]
-                col.findReplace((data[1],), "^.*$", fields[field], regex=True, field=imgfield)
-            continue
-
-        # check field contents
-        for match in lilypondRegexp.finditer(fields[field]):
-            ly = _ly_from_html(match.group(3))
-            filename = "lilypond-%s.png" % (checksum(ly),)
-            files.append(filename)
-            fields[field] = fields[field].replace(
-                match.group(), _img_link(col, match.group(2), ly, filename)
-            )
-    return fields, files
+    return txt
 
 
-def munge_fields(fields, model, data, col):
-    lilypond_munge = munge_fields_with_file_list(fields, model, data, col)[0]
-    return lilypond_munge
+# TODO This actually replaces the note field contents, need to only replace card contents
+gui_hooks.editor_will_munge_html.append(munge_field)
 
 
-addHook("mungeFields", munge_fields)
-
-
-def profileLoaded():
-    """Monkey patch the addon manager."""
-    get_template(None, "")  # creates default.ly if does not exist
-
-    # Commenting out until I can work out how to replace the
-    # onEdit and onRem calls in Anki 2.1
-    # lilypondMenu()
-
-
-addHook("profileLoaded", profileLoaded)
+# Commenting out until I can work out how to replace the
+# onEdit and onRem calls in Anki 2.1
+# def profileLoaded():
+#     """Monkey patch the addon manager."""
+#     lilypondMenu()
+#
+# addHook("profileLoaded", profileLoaded)
 
 anki_check = MediaManager.check
 
@@ -292,23 +273,23 @@ def alert(message):
     box.exec_()
 
 
-def lilypond_check(self, local=None):
-    files = []
-    for nid, mid, fields in self.col.db.execute("SELECT id, mid, flds FROM notes"):
-        model = self.col.models.get(mid)
-        note = self.col.getNote(nid)
-        data = [None, note.id]
-        flist = splitFields(fields)
-        fields = {}
-        for (name, (idx, conf)) in list(self.col.models.fieldMap(model).items()):
-            fields[name] = flist[idx]
-        (fields, note_files) = munge_fields_with_file_list(fields, model, data, self.col)
-        files = files + note_files
-    anki_results = anki_check(self, local)
-    files_to_delete = [x for x in anki_results[1] if x not in files]
-    return anki_results[0], files_to_delete, anki_results[2]
-
-
-MediaManager.check = lilypond_check
+# def lilypond_check(self, local=None):
+#     files = []
+#     for nid, mid, fields in self.col.db.execute("SELECT id, mid, flds FROM notes"):
+#         model = self.col.models.get(mid)
+#         note = self.col.getNote(nid)
+#         data = [None, note.id]
+#         flist = splitFields(fields)
+#         fields = {}
+#         for (name, (idx, conf)) in list(self.col.models.fieldMap(model).items()):
+#             fields[name] = flist[idx]
+#         (fields, note_files) = munge_fields(fields, model, data, self.col)
+#         files = files + note_files
+#     anki_results = anki_check(self, local)
+#     files_to_delete = [x for x in anki_results[1] if x not in files]
+#     return anki_results[0], files_to_delete, anki_results[2]
+#
+#
+# MediaManager.check = lilypond_check
 
 # --- End of file. ---
