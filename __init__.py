@@ -8,13 +8,6 @@ LilyPond (GNU Music Typesetter) integration addon for Anki 2.
 Code is based on / inspired by libanki's LaTeX integration.
 """
 
-# TODO
-#   Configuration page
-#       Custom parameters for lilypond exe
-#       Styling for <img> inserted into HTML
-#   Menu integration (for templates?)
-#   Is it true that changing templates requires restarting?
-
 # --- Imports: ---
 
 import cgi
@@ -38,8 +31,6 @@ from aqt.utils import getOnlyText
 from aqt.utils import showInfo
 
 # --- Globals: ---
-
-# http://lilypond.org/doc/v2.14/Documentation/usage/lilypond-output-in-other-programs#inserting-lilypond-output-into-other-programs
 
 # Load configuration options
 _config = mw.addonManager.getConfig(__name__)

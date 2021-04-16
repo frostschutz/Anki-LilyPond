@@ -4,8 +4,7 @@ Add sheet music snippets to your Anki deck, wrapped in `[lilypond][/lilypond]` t
 
 This addon requires LilyPond in order to work.
 
-
-# How to use
+## How to use
 
 * Wrap inline LilyPond code in tags:
   ```
@@ -30,15 +29,15 @@ like this:
 
 ```
 \paper{
-   indent=0\mm
-   line-width=120\mm
-   oddFooterMarkup=##f 
-   oddHeaderMarkup=##f 
-   bookTitleMarkup = ##f 
-   scoreTitleMarkup = ##f 
- }
- 
- \relative c'' { %ANKI% }
+  indent=0\mm
+  line-width=120\mm
+  oddFooterMarkup=##f 
+  oddHeaderMarkup=##f 
+  bookTitleMarkup = ##f 
+  scoreTitleMarkup = ##f 
+}
+
+{ %ANKI% }
 ```
 
 Where `%ANKI%` will be replaced with the code to be rendered.
@@ -95,3 +94,9 @@ all platforms.
 
 Note that the contents of the `-lilypondimg` field will be overwritten so don't put
 anything important in there.
+
+## ToDo
+[x] Configuration parameters for lilypond executable
+[] Config options for <img> HTML tag attributes (alt, etc.)
+[] Menu integration (for templates?)
+[] Is it true that changing templates requires restarting?
