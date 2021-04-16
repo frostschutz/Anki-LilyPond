@@ -8,4 +8,4 @@
   scoreTitleMarkup = ##f
 }
 
-{ %ANKI% }
+\relative c'' { %ANKI% }
