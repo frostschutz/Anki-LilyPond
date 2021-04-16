@@ -50,6 +50,7 @@ TAG_REGEXP = re.compile(r"\[lilypond(=(?P<template>[a-z0-9_-]+))?\](?P<code>.+?)
                         re.DOTALL | re.IGNORECASE)
 FIELD_NAME_REGEXP = re.compile(r"^(?P<field>.*)-lilypond(-(?P<template>[a-z0-9_-]+))?$",    # Match LilyPond field names
                                re.DOTALL | re.IGNORECASE)
+TARGET_FIELD_NAME_SUFFIX = "-lilypondimg"   # Suffix on LilyPond field destinations
 TEMPLATE_NAME_REGEXP = re.compile(r"^[a-z0-9_-]+$", re.DOTALL | re.IGNORECASE)  # Template names must match this
 IMG_TAG_REGEXP = re.compile("^<img.*>$", re.DOTALL | re.IGNORECASE)
 
@@ -273,12 +274,14 @@ gui_hooks.card_will_show.append(lambda html, card, kind: _munge_string(html))
 
 def munge_field(txt: str, editor: Editor):
     """Parse -lilypond field/lilypond tags in field before saving"""
-    fields = _getfields(editor.note.model())
-    if field_match := FIELD_NAME_REGEXP.match(fields[editor.currentField]):
+    fields: list[str] = _getfields(editor.note.model())
+    field: str = fields[editor.currentField]
+    if field_match := FIELD_NAME_REGEXP.match(field):
         # LilyPond field
         template_name = field_match.group(FIELD_NAME_REGEXP.groupindex['template'])
 
-        if (dest_field := field_match.group(FIELD_NAME_REGEXP.groupindex['field']) + "-lilypondimg") in fields:
+        if (dest_field := field_match.group(FIELD_NAME_REGEXP.groupindex['field']) + TARGET_FIELD_NAME_SUFFIX)\
+                in fields:
             # Target field exists, populate it
             editor.note[dest_field] = _img_link(template_name, txt)
             return txt
@@ -290,6 +293,9 @@ def munge_field(txt: str, editor: Editor):
                 return txt
 
             return _img_link(template_name, txt)
+    elif field.endswith(TARGET_FIELD_NAME_SUFFIX):
+        # Field is a destination for rendered images, won't contain code
+        return txt
     else:
         # Normal field
         # Substitute LilyPond tags
