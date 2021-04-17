@@ -53,7 +53,7 @@ FIELD_NAME_REGEXP = re.compile(r"^(?P<field>.*)-lilypond(-(?P<template>[a-z0-9_-
 TARGET_FIELD_NAME_SUFFIX = "-lilypondimg"   # Suffix on LilyPond field destinations
 TEMPLATE_NAME_REGEXP = re.compile(r"^[a-z0-9_-]+$", re.DOTALL | re.IGNORECASE)  # Template names must match this
 IMG_TAG_REGEXP = re.compile("^<img.*>$", re.DOTALL | re.IGNORECASE)
-
+CARD_EDITOR_PREFIX = "clayout"  # Prefix on kind parameter of card_will_show hook
 
 loaded_templates = {}   # Dict of template name: template code, avoids reading from file repeatedly
 lilypondCache = {}      # Cache for error-producing code, avoid re-rendering erroneous code
@@ -269,7 +269,14 @@ def _munge_string(text: str) -> str:
     return text
 
 
-gui_hooks.card_will_show.append(lambda html, card, kind: _munge_string(html))
+def munge_card(html: str, card: Card, kind: str):
+    if kind.startswith(CARD_EDITOR_PREFIX):
+        # In card editor, may contain invalid but tagged LilyPod code
+        return html
+    return _munge_string(html)
+
+
+gui_hooks.card_will_show.append(munge_card)
 
 
 def munge_field(txt: str, editor: Editor):

@@ -17,6 +17,10 @@ This addon requires LilyPond in order to work.
   ```
   c d e
   ```
+  
+* Create fields for LilyPond code and put `[lilypond][/lilypond]` tags around them
+  in the card template. This is not recommended as music will be re-rendered every
+  time the card is shown.
 
 Please refer to the LilyPond homepage and documentation for details on
 how to write LilyPond code.
