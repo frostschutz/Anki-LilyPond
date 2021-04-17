@@ -17,7 +17,6 @@ from html.entities import entitydefs
 from typing import Any
 from typing import Dict
 
-from anki import Collection
 from anki.cards import Card
 from anki.lang import _
 from anki.media import MediaManager
@@ -42,18 +41,20 @@ TEMP_FILE = tmpfile("lilypond", ".ly")
 LILYPOND_CMD = ["lilypond"] + _config['command_line_params'] + ["--o", TEMP_FILE, TEMP_FILE]
 OUTPUT_FILE_EXT = _config["output_file_ext"]
 DEFAULT_TEMPLATE = _config['default_template']
+USER_FILES_DIR = os.path.join(mw.pm.addonFolder(), __name__, "user_files")  # Template directory
+
 # TODO Extract these to config file?
 LILYPOND_PATTERN = "%ANKI%"     # Substitution targets in templates
 LILYPOND_SPLIT = "%%%"          # LilyPond code section delimiter
-USER_FILES_DIR = os.path.join(mw.pm.addonFolder(), __name__, "user_files")  # Template directory
-TAG_REGEXP = re.compile(r"\[lilypond(=(?P<template>[a-z0-9_-]+))?\](?P<code>.+?)\[/lilypond\]",     # Match tagged code
-                        re.DOTALL | re.IGNORECASE)
-FIELD_NAME_REGEXP = re.compile(r"^(?P<field>.*)-lilypond(-(?P<template>[a-z0-9_-]+))?$",    # Match LilyPond field names
-                               re.DOTALL | re.IGNORECASE)
+TAG_REGEXP = re.compile(        # Match tagged code
+    r"\[lilypond(=(?P<template>[a-z0-9_-]+))?\](?P<code>.+?)\[/lilypond\]", re.DOTALL | re.IGNORECASE)
+FIELD_NAME_REGEXP = re.compile(     # Match LilyPond field names
+    r"^(?P<field>.*)-lilypond(-(?P<template>[a-z0-9_-]+))?$", re.DOTALL | re.IGNORECASE)
 TARGET_FIELD_NAME_SUFFIX = "-lilypondimg"   # Suffix on LilyPond field destinations
+
 TEMPLATE_NAME_REGEXP = re.compile(r"^[a-z0-9_-]+$", re.DOTALL | re.IGNORECASE)  # Template names must match this
-IMG_TAG_REGEXP = re.compile("^<img.*>$", re.DOTALL | re.IGNORECASE)
-CARD_EDITOR_PREFIX = "clayout"  # Prefix on kind parameter of card_will_show hook
+IMG_TAG_REGEXP = re.compile("^<img.*>$", re.DOTALL | re.IGNORECASE)     # Detects if field already contains rendered img
+CARD_EDITOR_PREFIX = "clayout"  # Prefix on `kind` parameter of card_will_show hook in card template previewer
 
 loaded_templates = {}   # Dict of template name: template code, avoids reading from file repeatedly
 lilypondCache = {}      # Cache for error-producing code, avoid re-rendering erroneous code
